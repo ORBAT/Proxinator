@@ -1,0 +1,4 @@
+github.com/ORBAT/wendy											e4601da9fbf96fd1f6e81a18e58db10b57bce3ff 		# DHT based on Pastry
+github.com/bradfitz/iter										454541ec3da2a73fc34fd049b19ee5777bf19345		# Simple iteration util
+github.com/jessevdk/go-flags								ef51ed2000ee1721c7153e958511907b844b4a9c		# cmd line flags
+github.com/golang/glog											d1c4472bf2efd3826f2b5bdcc02d8416798d678c		# logging
