@@ -1,4 +1,7 @@
-package main
+// Package messaging provides DHT-based connectionless network I/O similar to UDP.
+//
+// Delivery or the order of messages is not guaranteed.
+package messaging
 
 import (
 	"log"
@@ -12,8 +15,8 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Address represents the address of an I2AS messaging node
-type Address struct{}
+// Address represents the address of an I2aS messaging node
+type Address []byte
 
 /*
 net
@@ -36,7 +39,7 @@ type Config struct {
 	Port int
 	// BootstrapNode is the address and port of a node already in the cluster
 	BootstrapNode string
-	// Address is the i2as address to use
+	// Address is the I2aS address to use
 	Address Address
 }
 
@@ -46,10 +49,15 @@ func (c *Config) Initialize() (Node, error) {}
 // A Node is an initialized node in the messaging network. If a node isn't the first one in the network, it should bootstrap using a known node
 type Node struct{}
 
-// Dial connects to the remote address raddr
+// func (n *Node)
+
+// Dial connects to the remote address raddr.
 func (n *Node) Dial(raddr *Address) (*Conn, error) {}
 
 /*
+
+NOTE: do PacketConn first
+
 type Conn interface {
         // Read reads data from the connection.
         // Read can be made to time out and return a Error with Timeout() == true
@@ -143,10 +151,13 @@ type PacketConn interface {
 }
 */
 
-// A Conn is the implementation of the Conn and PacketConn interfaces for the I2AS messaging network
-type Conn struct{}
+// A PacketConn is the implementation of the net.PacketConn interface for the I2aS messaging network
+type PacketConn struct{}
 
 /*
+
+needs Conn first
+
 type Listener interface {
         // Accept waits for and returns the next connection to the listener.
         Accept() (c Conn, err error)
@@ -160,14 +171,25 @@ type Listener interface {
 }
 */
 
-// A Listener is a I2AS messaging network listener
+// A Listener is a I2aS messaging network listener
 type Listener struct{}
 
-type MessageType uint8
+func (l *Listener) AcceptI2aS() (*Listener, error) {}
 
-// A Message is an I2AS messaging network message
+type MessageFlags uint8
+
+const (
+	DATA     MessageFlags = 1 << iota // message contains data
+	WANT_ACK                          // message needs to be acknowledged when received
+)
+
+// A Message is an I2aS messaging network message
 type Message struct {
 	Version uint16
+	From    Address
+	To      Address
+	Flags   MessageFlags
+	Data    []byte
 }
 
 func randomWendyID() (id wendy.NodeID) {
