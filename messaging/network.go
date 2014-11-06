@@ -1,11 +1,14 @@
 // Package messaging provides DHT-based connectionless network I/O similar to UDP.
 //
 // Delivery or the order of messages is not guaranteed.
+//
+//
 package messaging
 
 import (
 	"log"
 	"math/rand"
+	"net"
 	"time"
 
 	"github.com/ORBAT/wendy"
@@ -29,82 +32,36 @@ type Addr interface {
 
 // Config holds configuration for the messaging node
 type Config struct {
-	// LocalIP is the IP address the node is reachable on within its region
-	LocalIP string
-	// ExternalIP is the external IP of the node. The node must be reachable on this IP from the outside
-	ExternalIP string
-	// Region is the node's region. Nodes with the same region will be heavily favored by the routing algorithm. Can be omitted.
+	// LocalAddr is the address and port the node is reachable on within its region
+	LocalAddr net.TCPAddr
+	// ExternalAddr is the external address and port of the node
+	ExternalAddr net.TCPAddr
+	// Region is the node's region. Nodes within the same region will be heavily favored by the routing algorithm. Can be omitted.
 	Region string
-	// Port is the port the node should listen on
-	Port int
-	// BootstrapNode is the address and port of a node already in the cluster
-	BootstrapNode string
-	// Address is the I2aS address to use
+	// BootstrapNode is the address and port of a node already in the network. Can be omitted if the node is the first one.
+	BootstrapNode net.TCPAddr
+	// Address is the I2aS address to use. This is needed even when only sending messages.
 	Address Address
 }
 
 // Initialize initializes a node using the Config
 func (c *Config) Initialize() (Node, error) {}
 
-// A Node is an initialized node in the messaging network. If a node isn't the first one in the network, it should bootstrap using a known node
-type Node struct{}
-
-// func (n *Node)
-
-// Dial connects to the remote address raddr.
-func (n *Node) Dial(raddr *Address) (*Conn, error) {}
-
-/*
-
-NOTE: do PacketConn first
-
-type Conn interface {
-        // Read reads data from the connection.
-        // Read can be made to time out and return a Error with Timeout() == true
-        // after a fixed time limit; see SetDeadline and SetReadDeadline.
-        Read(b []byte) (n int, err error)
-
-        // Write writes data to the connection.
-        // Write can be made to time out and return a Error with Timeout() == true
-        // after a fixed time limit; see SetDeadline and SetWriteDeadline.
-        Write(b []byte) (n int, err error)
-
-        // Close closes the connection.
-        // Any blocked Read or Write operations will be unblocked and return errors.
-        Close() error
-
-        // LocalAddr returns the local network address.
-        LocalAddr() Addr
-
-        // RemoteAddr returns the remote network address.
-        RemoteAddr() Addr
-
-        // SetDeadline sets the read and write deadlines associated
-        // with the connection. It is equivalent to calling both
-        // SetReadDeadline and SetWriteDeadline.
-        //
-        // A deadline is an absolute time after which I/O operations
-        // fail with a timeout (see type Error) instead of
-        // blocking. The deadline applies to all future I/O, not just
-        // the immediately following call to Read or Write.
-        //
-        // An idle timeout can be implemented by repeatedly extending
-        // the deadline after successful Read or Write calls.
-        //
-        // A zero value for t means I/O operations will not time out.
-        SetDeadline(t time.Time) error
-
-        // SetReadDeadline sets the deadline for future Read calls.
-        // A zero value for t means Read will not time out.
-        SetReadDeadline(t time.Time) error
-
-        // SetWriteDeadline sets the deadline for future Write calls.
-        // Even if write times out, it may return n > 0, indicating that
-        // some of the data was successfully written.
-        // A zero value for t means Write will not time out.
-        SetWriteDeadline(t time.Time) error
+// A Node is an initialized node in the messaging network. It implements the net.PacketConn interface.
+// If a node isn't the first one in the network, it should bootstrap using a known node.
+type Node struct {
+	wcluster *wendy.Cluster
+	wnode    *wendy.Node
+	conf     *Config
 }
-*/
+
+func (n *Node) WriteToI2aS(m *Message, addr Address) error {}
+
+func (n *Node) WriteTo(b []byte, addr net.Addr) (int, error) {}
+
+func (n *Node) ReadFrom(b []byte) (int, net.Addr, error) {}
+
+func (n *Node) ReadFromI2aS() (Message, error) {}
 
 /*
 type PacketConn interface {
@@ -151,45 +108,12 @@ type PacketConn interface {
 }
 */
 
-// A PacketConn is the implementation of the net.PacketConn interface for the I2aS messaging network
-type PacketConn struct{}
-
-/*
-
-needs Conn first
-
-type Listener interface {
-        // Accept waits for and returns the next connection to the listener.
-        Accept() (c Conn, err error)
-
-        // Close closes the listener.
-        // Any blocked Accept operations will be unblocked and return errors.
-        Close() error
-
-        // Addr returns the listener's network address.
-        Addr() Addr
-}
-*/
-
-// A Listener is a I2aS messaging network listener
-type Listener struct{}
-
-func (l *Listener) AcceptI2aS() (*Listener, error) {}
-
-type MessageFlags uint8
-
-const (
-	DATA     MessageFlags = 1 << iota // message contains data
-	WANT_ACK                          // message needs to be acknowledged when received
-)
-
 // A Message is an I2aS messaging network message
 type Message struct {
-	Version uint16
+	Version uint8 // protocol version
 	From    Address
 	To      Address
-	Flags   MessageFlags
-	Data    []byte
+	Data    []byte // message data
 }
 
 func randomWendyID() (id wendy.NodeID) {
