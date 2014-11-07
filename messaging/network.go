@@ -6,6 +6,10 @@
 package messaging
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/gob"
+	"errors"
 	"log"
 	"math/rand"
 	"net"
@@ -19,7 +23,20 @@ func init() {
 }
 
 // Address represents the address of an I2aS messaging node
-type Address []byte
+type Address wendy.NodeID
+
+func (a Address) MarshalBinary() (bs []byte, err error) {
+	bs = make([]byte, 16)
+	binary.BigEndian.PutUint64(bs, a[0])
+	binary.BigEndian.PutUint64(bs[8:], a[1])
+	return
+}
+
+func (a *Address) UnmarshalBinary(bs []byte) error {
+	a[0] = binary.BigEndian.Uint64(bs)
+	a[1] = binary.BigEndian.Uint64(bs[8:])
+	return nil
+}
 
 /*
 net
@@ -45,7 +62,9 @@ type Config struct {
 }
 
 // Initialize initializes a node using the Config
-func (c *Config) Initialize() (Node, error) {}
+func (c *Config) Initialize() (*Node, error) {
+	return nil, errors.New("wip")
+}
 
 // A Node is an initialized node in the messaging network. It implements the net.PacketConn interface.
 // If a node isn't the first one in the network, it should bootstrap using a known node.
@@ -55,13 +74,25 @@ type Node struct {
 	conf     *Config
 }
 
-func (n *Node) WriteToI2aS(m *Message, addr Address) error {}
+func (n *Node) WriteToI2aS(m *Message, addr Address) error {
+	bytes, err := m.Bytes()
+	if err != nil {
+		return err
+	}
+	return n.wcluster.Send(n.wcluster.NewMessage(16, wendy.NodeID(addr), bytes))
+}
 
-func (n *Node) WriteTo(b []byte, addr net.Addr) (int, error) {}
+func (n *Node) WriteTo(b []byte, addr net.Addr) (int, error) {
+	return 0, errors.New("wip")
+}
 
-func (n *Node) ReadFrom(b []byte) (int, net.Addr, error) {}
+func (n *Node) ReadFrom(b []byte) (int, net.Addr, error) {
+	return 0, nil, errors.New("wip")
+}
 
-func (n *Node) ReadFromI2aS() (Message, error) {}
+func (n *Node) ReadFromI2aS() (*Message, error) {
+	return nil, errors.New("wip")
+}
 
 /*
 type PacketConn interface {
@@ -108,12 +139,36 @@ type PacketConn interface {
 }
 */
 
+const MESSAGE_VERSION = 0
+
 // A Message is an I2aS messaging network message
 type Message struct {
 	Version uint8 // protocol version
 	From    Address
 	To      Address
 	Data    []byte // message data
+}
+
+func (m *Message) GobEncode() (bs []byte, err error) {
+	var buf bytes.Buffer
+	err = gob.NewEncoder(&buf).Encode(*m)
+	if err != nil {
+		return
+	}
+	bs = buf.Bytes()
+	return
+}
+
+func (m *Message) Bytes() []byte {
+
+}
+
+func (m *Message) GobDecode([]byte) error {
+	return errors.New("wip")
+}
+
+func (m *Message) Clone() *Message {
+	return &Message{Version: m.Version, From: m.From, To: m.To, Data: m.Data[:]}
 }
 
 func randomWendyID() (id wendy.NodeID) {
