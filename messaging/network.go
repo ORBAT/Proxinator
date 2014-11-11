@@ -171,7 +171,7 @@ func (n *Node) ReadFromI2aS() (m *Message, err error) {
 	n.log.Println("Waiting for a message")
 	select {
 	case msg, ok := <-n.wapp.delivd:
-		n.log.Printf("Got message (%t), %#v", ok, msg)
+		n.log.Printf("Got message (%t)", ok)
 		if ok {
 			m = msg
 		} else {
@@ -325,7 +325,7 @@ func (app *wendyApp) OnDeliver(wm wendy.Message) {
 }
 
 func (app *wendyApp) OnForward(msg *wendy.Message, next wendy.NodeID) bool {
-	app.log.Printf("Forwarding message %s to Node %s.", msg.Key, next)
+	app.log.Printf("fwd %s -> %s.", msg.Key, next)
 	return true // return false if you don't want the message forwarded
 }
 
