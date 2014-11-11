@@ -24,6 +24,7 @@ import (
 const (
 	ProtocolVersion = 0
 	WendyPurpose    = 16
+	NetworkName     = "i2msg"
 )
 
 func init() {
@@ -36,6 +37,10 @@ type Address wendy.NodeID
 
 func (a Address) String() string {
 	return fmt.Sprintf("%016x%016x", a[0], a[1])
+}
+
+func (a Address) Network() string {
+	return NetworkName
 }
 
 func NewAddress(bs []byte) (addr Address, err error) {
