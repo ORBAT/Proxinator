@@ -22,27 +22,36 @@ import (
 )
 
 const (
-	ProtocolVersion = 0
-	WendyPurpose    = 16
-	NetworkName     = "i2msg"
+	ProtocolVersion = 0       // Protocol version supported by this build
+	WendyPurpose    = 16      // Purpose byte for Wendy
+	NetworkName     = "i2msg" // The network name used by I2aS messaging
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Address represents the address of an I2aS messaging node
+// Address represents the address of an I2aS messaging node. Implements net.Addr
 type Address wendy.NodeID
 
+// String returns the string representation of the address
 func (a Address) String() string {
 	return fmt.Sprintf("%016x%016x", a[0], a[1])
 }
 
+// Network returns the network name for I2aS messaging.
 func (a Address) Network() string {
 	return NetworkName
 }
 
+var EmptyAddress = Address(wendy.NodeID([2]uint64{0, 0}))
+
+// NewAddress returns a new Address using bs (which must have a len of 16). If
+// an error is encountered, EmptyAddress will be returned with the error
 func NewAddress(bs []byte) (addr Address, err error) {
+	if len(bs) != 16 {
+		return EmptyAddress, errors.New("Not enough bytes for address")
+	}
 	a, err := wendy.NodeIDFromBytes(bs)
 	if err == nil {
 		addr = Address(a)
