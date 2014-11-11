@@ -121,12 +121,18 @@ func (c *Config) Initialize() (nd *Node, err error) {
 // A Node is an initialized node in the messaging network. It implements the net.PacketConn interface.
 // If a node isn't the first one in the network, it should bootstrap using a known node.
 type Node struct {
-	wcluster *wendy.Cluster
+	wcluster dhtIface
 	wnode    *wendy.Node
 	conf     *Config
 	wapp     *wendyApp
 	log      *log.Logger
 	id       int
+}
+
+type dhtIface interface {
+	Send(wendy.Message) error
+	NewMessage(byte, wendy.NodeID, []byte) wendy.Message
+	Stop()
 }
 
 func (nd *Node) Close() error {
