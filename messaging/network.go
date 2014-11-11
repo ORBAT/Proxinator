@@ -14,9 +14,9 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"os"
 	"time"
 
+	"github.com/ORBAT/proxinator/logging"
 	"github.com/ORBAT/proxinator/util"
 	"github.com/ORBAT/wendy"
 )
@@ -29,7 +29,6 @@ const (
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
 }
 
 // Address represents the address of an I2aS messaging node
@@ -100,7 +99,8 @@ func (nd *Node) initWendy() error {
 	wcl := wendy.NewCluster(wn, nil) // TODO(ORBAT): credentials
 	app := newWendyApp(nd.conf.Address)
 	wcl.RegisterCallback(app)
-	wcl.SetLogger(log.New(os.Stderr, fmt.Sprintf("[cluster-%s] ", wcl.ID().String()), log.Lmicroseconds|log.Lshortfile))
+
+	wcl.SetLogger(logging.New(fmt.Sprintf("cluster-%s", wcl.ID().String()), nil))
 	wcl.SetLogLevel(wendy.LogLevelWarn)
 	// TODO(ORBAT): graceful shutdown on signals etc.
 	go wcl.Listen()
@@ -122,7 +122,7 @@ func (nd *Node) initWendy() error {
 
 func (c *Config) initNode() *Node {
 	id := <-util.SequentialInts
-	lg := log.New(os.Stderr, fmt.Sprintf("[Node-%d %s] ", id, c.Address.String()), log.Lmicroseconds|log.Lshortfile)
+	lg := logging.New(fmt.Sprintf("Node-%d %s", id, c.Address.String()), nil)
 	return &Node{conf: c, log: lg, id: id}
 }
 
@@ -331,7 +331,7 @@ type wendyApp struct {
 
 func newWendyApp(a Address) *wendyApp {
 	id := <-util.SequentialInts
-	return &wendyApp{id, a, make(chan *Message, IncomingBufferSize), log.New(os.Stderr, fmt.Sprintf("[wendyApp-%d %s] ", id, a), log.Lmicroseconds|log.Lshortfile)}
+	return &wendyApp{id, a, make(chan *Message, IncomingBufferSize), logging.New(fmt.Sprintf("wendyApp-%d %s", id, a), nil)}
 }
 
 func (app *wendyApp) OnError(err error) {
