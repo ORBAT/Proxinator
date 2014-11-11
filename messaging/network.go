@@ -35,7 +35,7 @@ func init() {
 type Address wendy.NodeID
 
 func (a Address) String() string {
-	return fmt.Sprintf("%x%x", a[0], a[1])
+	return fmt.Sprintf("%016x%016x", a[0], a[1])
 }
 
 func NewAddress(bs []byte) (addr Address, err error) {
