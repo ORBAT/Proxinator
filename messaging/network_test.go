@@ -15,6 +15,45 @@ import (
 	"github.com/ORBAT/wendy"
 )
 
+type mockCluster struct {
+	sent chan *wendy.Message
+	app  wendy.Application
+}
+
+func newMockCluster(sentCh chan *wendy.Message, app wendy.Application) *mockCluster {
+	return &mockCluster{sentCh, app}
+}
+
+func (mc *mockCluster) Send(wm wendy.Message) error {
+	go func() {
+		mc.sent <- &wm
+	}()
+	return nil
+}
+
+func (mc *mockCluster) NewMessage(purpose byte, nid wendy.NodeID, val []byte) wendy.Message {
+	return wendy.Message{Purpose: purpose, Key: nid, Value: val}
+}
+
+func (mc *mockCluster) Stop() {}
+
+func newMockConf() *Config {
+	return &Config{Address: Address(randomWendyID())}
+}
+
+func newMockNode(a Address) (*Node, <-chan *wendy.Message) {
+	conf := newMockConf()
+	nd := conf.initNode()
+
+	sentCh := make(chan *wendy.Message, 20)
+	app := newWendyApp(a)
+	mc := newMockCluster(sentCh, app)
+
+	nd.wcluster = mc
+	nd.wapp = app
+	return nd, sentCh
+}
+
 func ok(v interface{}) {
 	if v != nil {
 		panic(v)
