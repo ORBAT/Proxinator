@@ -90,31 +90,45 @@ type Config struct {
 	Address Address
 }
 
-// Initialize initializes a node using the Config
-func (c *Config) Initialize() (nd *Node, err error) {
-	id := <-util.SequentialInts
-
-	lg := log.New(os.Stderr, fmt.Sprintf("[Node-%d %s] ", id, c.Address.String()), log.Lmicroseconds|log.Lshortfile)
-	n := wendy.NewNode(wendy.NodeID(c.Address), c.LocalAddr.IP.String(), c.ExternalAddr.IP.String(), c.Region, c.LocalAddr.Port)
-	cls := wendy.NewCluster(n, nil) // TODO(ORBAT): credentials
-	app := newWendyApp(c.Address)
-	cls.RegisterCallback(app)
-
-	cls.SetLogger(log.New(os.Stderr, fmt.Sprintf("[cluster-%s] ", cls.ID().String()), log.Lmicroseconds|log.Lshortfile))
-	cls.SetLogLevel(wendy.LogLevelWarn)
+func (nd *Node) initWendy() error {
+	wn := wendy.NewNode(wendy.NodeID(nd.conf.Address), nd.conf.LocalAddr.IP.String(), nd.conf.ExternalAddr.IP.String(), nd.conf.Region, nd.conf.LocalAddr.Port)
+	wcl := wendy.NewCluster(wn, nil) // TODO(ORBAT): credentials
+	app := newWendyApp(nd.conf.Address)
+	wcl.RegisterCallback(app)
+	wcl.SetLogger(log.New(os.Stderr, fmt.Sprintf("[cluster-%s] ", wcl.ID().String()), log.Lmicroseconds|log.Lshortfile))
+	wcl.SetLogLevel(wendy.LogLevelWarn)
 	// TODO(ORBAT): graceful shutdown on signals etc.
-	go cls.Listen()
+	go wcl.Listen()
 
-	if c.BootstrapNode != nil {
-		lg.Printf("Bootstrapping using %s", c.BootstrapNode.String())
-		err = cls.Join(c.BootstrapNode.IP.String(), c.BootstrapNode.Port)
+	if nd.conf.BootstrapNode != nil {
+		nd.log.Printf("Bootstrapping using %s", nd.conf.BootstrapNode.String())
+		err := wcl.Join(nd.conf.BootstrapNode.IP.String(), nd.conf.BootstrapNode.Port)
 		if err != nil {
-			return
+			return err
 		}
 		<-time.After(1 * time.Second) // give node some time to bootstrap
-		lg.Println("Bootstrapped")
+		nd.log.Println("Bootstrapped")
 	}
-	nd = &Node{wcluster: cls, wnode: n, conf: c, wapp: app, log: lg}
+	nd.wnode = wn
+	nd.wcluster = wcl
+	nd.wapp = app
+	return nil
+}
+
+func (c *Config) initNode() *Node {
+	id := <-util.SequentialInts
+	lg := log.New(os.Stderr, fmt.Sprintf("[Node-%d %s] ", id, c.Address.String()), log.Lmicroseconds|log.Lshortfile)
+	return &Node{conf: c, log: lg, id: id}
+}
+
+// Initialize initializes a node using the Config
+func (c *Config) Initialize() (nd *Node, err error) {
+	nd = c.initNode()
+	err = nd.initWendy()
+	if err != nil {
+		return
+	}
+
 	return
 }
 
