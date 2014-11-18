@@ -1,7 +1,6 @@
 package piper
 
 import (
-	"errors"
 	"io"
 	"net"
 
@@ -14,7 +13,19 @@ const (
 
 var proxyLog = logging.New("ConnProxy", nil)
 
-// A Conn is a network connection piped through one or more hosts
+// dialMsg contains the network and address a node wants to connect to.
+// MUST be the first message sent on a connection.
+type dialMsg struct {
+	network string
+	address string
+}
+
+type Node struct {
+	muxAddr    net.Addr     // the multiplexer address of this node. Other nodes connect to this
+	inListener net.Listener // listener for incoming connections
+}
+
+// A Conn is a network connection proxied through another host
 type Conn struct {
 }
 
@@ -58,8 +69,4 @@ func copy(dst io.WriteCloser, src io.Reader) (written int64, err error) {
 	}
 
 	return written, err
-}
-
-func Proxy(fst, snd net.Conn) (*Proxy, error) {
-	return nil, errors.New("wip")
 }
