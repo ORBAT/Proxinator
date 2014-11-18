@@ -193,6 +193,7 @@ func (nd *Node) WriteTo(b []byte, addr net.Addr) (n int, err error) {
 	return 0, errors.New("wip")
 }
 
+// ReadFrom reads bytes from the I2aS messaging network.
 func (n *Node) ReadFrom(b []byte) (int, net.Addr, error) {
 	return 0, nil, errors.New("wip")
 }

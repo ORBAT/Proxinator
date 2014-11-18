@@ -40,6 +40,11 @@ func (mc *mockCluster) NewMessage(purpose byte, nid wendy.NodeID, val []byte) we
 
 func (mc *mockCluster) Stop() {}
 
+// Messages sent on this channel will be readable using Node's ReadFromI2aS or ReadFrom
+func (mc *mockCluster) msgDelivery() chan *Message {
+	return nil
+}
+
 func newMockConf(a Address) *Config {
 	return &Config{Address: a}
 }
