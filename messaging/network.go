@@ -186,15 +186,13 @@ func (nd *Node) WriteToI2aS(m *Message, addr Address) (n int, err error) {
 	return
 }
 
-// WriteToI2aS writes bytes b to I2aS address addr using node nod, returning bytes written or an error. n only includes raw message byte count; the DHT's message
+// WriteTo writes bytes b to I2aS address addr using node nd, returning bytes written or an error. n only includes raw message byte count; the DHT's message
 // "envelope" is not counted.
 func (nd *Node) WriteTo(b []byte, addr net.Addr) (n int, err error) {
 	//remember to check addr.Network()
 	return 0, errors.New("wip")
 }
 
-// WriteToI2aS writes bytes b to I2aS address addr using node nod, returning bytes written or an error. n only includes raw message byte count; the DHT's message
-// "envelope" is not counted.
 func (n *Node) ReadFrom(b []byte) (int, net.Addr, error) {
 	return 0, nil, errors.New("wip")
 }
@@ -218,6 +216,8 @@ func (n *Node) ReadFromI2aS() (m *Message, err error) {
 func (nd *Node) msgAsWendy(m *Message) wendy.Message {
 	return nd.wcluster.NewMessage(WendyPurpose, wendy.NodeID(m.To), m.Data)
 }
+
+// TODO(ORBAT): implement PacketConn
 
 /*
 type PacketConn interface {
