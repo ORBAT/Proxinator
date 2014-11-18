@@ -1,3 +1,4 @@
+// package piper proxies network connections through another host
 package piper
 
 import (
