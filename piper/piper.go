@@ -56,7 +56,7 @@ func copy(dst io.WriteCloser, src io.Reader) (written int64, err error) {
 				break
 			}
 		}
-		if er == EOF {
+		if er == io.EOF {
 			break
 		}
 		if er != nil {
