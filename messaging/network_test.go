@@ -42,7 +42,7 @@ func (mc *mockCluster) Stop() {}
 
 // Messages sent on this channel will be readable using Node's ReadFromI2aS or ReadFrom
 func (mc *mockCluster) msgDelivery() chan *Message {
-	return nil
+	return mc.app.(*wendyApp).delivd
 }
 
 func newMockConf(a Address) *Config {
@@ -204,6 +204,10 @@ func TestMsgFromWendy(t *testing.T) {
 	}
 }
 
+func TestAppForward(t *testing.T) {
+
+}
+
 func TestAppDeliver(t *testing.T) {
 	defer logging.LogTo(os.Stderr)()
 	numMsgs := 10
@@ -230,20 +234,21 @@ func TestAppDeliver(t *testing.T) {
 		app.OnDeliver(*wm)
 	}
 
+	ok(app.Stop())
+
 	var rcvd []*Message
 
-	var wg sync.WaitGroup
-
-	wg.Add(numMsgs)
+	var wait sync.WaitGroup
+	wait.Add(1)
 
 	go func() {
-		for msg := range app.delivd {
+		defer wait.Done()
+		for msg := range app.delivd { // TODO: test that only numMsgs messages are delivered
 			rcvd = append(rcvd, msg)
-			wg.Done()
 		}
 	}()
 
-	wg.Wait()
+	wait.Wait()
 
 	if len(rcvd) != numMsgs {
 		t.Errorf("Expected %d messages, got %d", numMsgs, len(rcvd))
