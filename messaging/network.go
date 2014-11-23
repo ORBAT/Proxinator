@@ -327,6 +327,10 @@ func randomWendyID() (id wendy.NodeID) {
 func msgFromWendy(wm *wendy.Message) (m *Message, err error) {
 	m = &Message{}
 	err = m.Decode(wm.Value)
+	if err != nil {
+		m = nil
+	}
+
 	return
 }
 
@@ -359,8 +363,16 @@ func (app *wendyApp) OnDeliver(wm wendy.Message) {
 	app.log.Println("Message delivered")
 }
 
+func (app *wendyApp) Stop() error {
+	return errors.New("WIP")
+}
+
 func (app *wendyApp) OnForward(msg *wendy.Message, next wendy.NodeID) bool {
 	app.log.Printf("fwd %s -> %s.", msg.Key, next)
+
+	// TODO(ORBAT): if TTL = 0, consider message delivered
+	// TODO(ORBAT): decrement TTL
+
 	return true // return false if you don't want the message forwarded
 }
 
