@@ -1,6 +1,6 @@
 package util
 
-var SequentialInts chan int = make(chan int, 20)
+var SequentialInts chan int = make(chan int)
 
 func init() {
 	i := 0
