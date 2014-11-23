@@ -14,11 +14,23 @@ const (
 
 var proxyLog = logging.New("ConnProxy", nil)
 
+type msgType uint8
+
+const (
+	data_msg msgType = iota
+	dial_msg
+)
+
+type msg struct {
+	Type msgType
+}
+
 // dialMsg contains the network and address a node wants to connect to.
 // MUST be the first message sent on a connection.
 type dialMsg struct {
-	network string
-	address string
+	msg
+	Network string
+	Address string
 }
 
 type Node struct {
