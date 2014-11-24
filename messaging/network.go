@@ -11,6 +11,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -189,22 +190,50 @@ func (nd *Node) WriteToI2aS(m *Message, addr Address) (n int, err error) {
 // WriteTo writes bytes b to I2aS address addr using node nd, returning bytes written or an error. n only includes raw message byte count; the DHT's message
 // "envelope" is not counted.
 func (nd *Node) WriteTo(b []byte, addr net.Addr) (n int, err error) {
-	//remember to check addr.Network()
+	if addr.Network() != NetworkName {
+		return 0, net.UnknownNetworkError(addr.Network())
+	}
 	return 0, errors.New("wip")
 }
 
+var (
+	// ErrWendyApp means something went weird with the Wendy app
+	ErrWendyApp = errors.New("Internal error")
+)
+
 // ReadFrom reads bytes from the I2aS messaging network.
-func (n *Node) ReadFrom(b []byte) (int, net.Addr, error) {
-	return 0, nil, errors.New("wip")
+func (nd *Node) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
+	if cap(b) == 0 {
+		return 0, nil, io.ErrShortBuffer
+	}
+
+	msg, ok := <-nd.wapp.delivd
+
+	if !ok {
+		return 0, nil, ErrWendyApp
+	}
+	addr = msg.From
+
+	data := msg.Data
+
+	n = len(data)
+	nc := copy(b, data)
+	if nc != n {
+		err = io.ErrShortBuffer
+	}
+
+	nd.log.Printf("Received message %#v", msg)
+
+	return
 }
 
 // TODO(ORBAT): timeouts for Node's net.PacketConn stuff
 
-func (n *Node) ReadFromI2aS() (m *Message, err error) {
-	n.log.Println("Waiting for a message")
+func (nd *Node) ReadFromI2aS() (m *Message, err error) {
+	nd.log.Println("Waiting for a message")
 	select {
-	case msg, ok := <-n.wapp.delivd:
-		n.log.Printf("Got message (%t)", ok)
+	case msg, ok := <-nd.wapp.delivd:
+		nd.log.Printf("Got message (%t)", ok)
 		if ok {
 			m = msg
 		} else {
@@ -364,7 +393,8 @@ func (app *wendyApp) OnDeliver(wm wendy.Message) {
 }
 
 func (app *wendyApp) Stop() error {
-	return errors.New("WIP")
+	close(app.delivd)
+	return nil
 }
 
 func (app *wendyApp) OnForward(msg *wendy.Message, next wendy.NodeID) bool {
