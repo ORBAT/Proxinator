@@ -3,12 +3,9 @@ package messaging
 import (
 	"fmt"
 	"net"
-	"os"
 	"reflect"
 	"strconv"
 	"sync"
-
-	"github.com/ORBAT/proxinator/logging"
 
 	"github.com/bradfitz/iter"
 
@@ -49,17 +46,19 @@ func newMockConf(a Address) *Config {
 	return &Config{Address: a}
 }
 
-func newMockNode(a Address) (*Node, <-chan *wendy.Message) {
+const msgBufSize = 20
+
+func newMockNode(a Address) (*Node, *mockCluster, <-chan *wendy.Message) {
 	conf := newMockConf(a)
 	nd := conf.initNode()
 
-	sentCh := make(chan *wendy.Message, 20)
+	sentCh := make(chan *wendy.Message, msgBufSize)
 	app := newWendyApp(a)
 	mc := newMockCluster(sentCh, app)
 
 	nd.wcluster = mc
 	nd.wapp = app
-	return nd, sentCh
+	return nd, mc, sentCh
 }
 
 func ok(v interface{}) {
@@ -72,7 +71,7 @@ func TestWriteTo(t *testing.T) {
 	from := Address(randomWendyID())
 	to := Address(randomWendyID())
 
-	nd, sentCh := newMockNode(from)
+	nd, _, sentCh := newMockNode(from)
 	bytes := []byte{1, 75, 31, 44, 8, 1, 100, 20}
 
 	t.Logf("From %s\nTo %s\n", from, to)
@@ -107,7 +106,7 @@ func TestWriteToI2aS(t *testing.T) {
 	from := Address(randomWendyID())
 	to := Address(randomWendyID())
 
-	nd, sentCh := newMockNode(from)
+	nd, _, sentCh := newMockNode(from)
 	msg := &Message{Version: ProtocolVersion, Data: []byte{1, 1, 2, 3, 5, 8}}
 
 	t.Logf("From %s\nTo %s\n", from, to)
@@ -139,6 +138,155 @@ func TestWriteToI2aS(t *testing.T) {
 	case <-time.After(50 * time.Millisecond):
 		t.Fatal("Message wasn't sent?")
 	}
+}
+
+func TestReadFromI2aS(t *testing.T) {
+	from := Address(randomWendyID())
+	to := Address(randomWendyID())
+
+	nd, mc, _ := newMockNode(to)
+
+	numMsgs := msgBufSize - 1
+
+	retCh := make(chan *Message, numMsgs)
+
+	reader := func(ret chan *Message) {
+		for {
+			msg, err := nd.ReadFromI2aS()
+			ret <- msg
+			if err != nil {
+				close(ret)
+				t.Error("ReadFromI2aS error:", err.Error())
+			}
+		}
+	}
+
+	go reader(retCh)
+
+	var wg sync.WaitGroup
+	wg.Add(numMsgs)
+	var msgs []*Message
+
+	for i := range iter.N(numMsgs) {
+		msg := &Message{Version: ProtocolVersion, From: from, To: to, Data: []byte{byte(i % 256)}}
+		msgs = append(msgs, msg)
+		go func(msg *Message, w *sync.WaitGroup) {
+			defer w.Done()
+			mc.msgDelivery() <- msg
+		}(msg, &wg)
+	}
+
+	wg.Wait()
+
+	nrcvd := 0
+	var rcvd []*Message
+
+	for {
+		select {
+		case <-time.After(50 * time.Millisecond):
+			goto Out
+		case msg := <-retCh:
+			rcvd = append(rcvd, msg)
+			nrcvd++
+		}
+	}
+
+Out:
+
+	if nrcvd != numMsgs {
+		t.Errorf("Expected %d messages, got %d", numMsgs, nrcvd)
+	}
+
+	for i, msg := range rcvd {
+		if msg.Data[0] != byte(i%256) {
+			t.Errorf("Odd message at idx %d (%d), %#v", i, i%256, msg)
+		}
+		if msg.From != from {
+			t.Errorf("Wanted From %s, got %s", msg.From, from)
+		}
+		if msg.To != to {
+			t.Errorf("Wanted to %s, got %s", msg.To, to)
+		}
+	}
+
+}
+
+func TestReadFrom(t *testing.T) {
+	from := Address(randomWendyID())
+	to := Address(randomWendyID())
+
+	nd, mc, _ := newMockNode(to)
+
+	numMsgs := msgBufSize - 1
+
+	retCh := make(chan []byte, numMsgs)
+
+	reader := func(ret chan []byte) {
+		for {
+			buf := make([]byte, 32)
+			n, addr, err := nd.ReadFrom(buf)
+			buf = buf[:n]
+			if err != nil {
+				t.Error("ReadFrom error:", err.Error())
+			}
+			if addr != from {
+				t.Errorf("Expected message from %s but got one from %s", from, addr)
+			}
+			ret <- buf
+		}
+	}
+
+	go reader(retCh)
+
+	var wg sync.WaitGroup
+	wg.Add(numMsgs)
+	var msgs [][]byte
+
+	for i := range iter.N(numMsgs) {
+		msg := []byte{byte(i % 256)}
+		msgs = append(msgs, msg)
+		go func(bs []byte, w *sync.WaitGroup) {
+			defer w.Done()
+			mc.msgDelivery() <- &Message{From: from, Data: bs}
+		}(msg, &wg)
+	}
+
+	wg.Wait()
+
+	nrcvd := 0
+	var rcvd [][]byte
+
+	for {
+		select {
+		case <-time.After(50 * time.Millisecond):
+			goto Out
+		case msg, ok := <-retCh:
+			if ok {
+				rcvd = append(rcvd, msg)
+				nrcvd++
+			} else {
+				t.Error("retCh closed")
+			}
+
+		}
+	}
+
+Out:
+
+	if nrcvd != numMsgs {
+		t.Errorf("Expected %d messages, got %d", numMsgs, nrcvd)
+	}
+
+	for i, msg := range rcvd {
+		if len(msg) != 1 {
+			t.Error("Weird messge length", len(msg))
+			continue
+		}
+		if msg[0] != byte(i%256) {
+			t.Errorf("Odd message at idx %d (%d), %#v", i, i%256, msg)
+		}
+	}
+
 }
 
 func TestAddressEncoding(t *testing.T) {
@@ -209,7 +357,7 @@ func TestAppForward(t *testing.T) {
 }
 
 func TestAppDeliver(t *testing.T) {
-	defer logging.LogTo(os.Stderr)()
+	// defer logging.LogTo(os.Stderr)()
 	numMsgs := 10
 
 	from, err := NewAddress([]byte("1111111111111111"))
@@ -243,7 +391,7 @@ func TestAppDeliver(t *testing.T) {
 
 	go func() {
 		defer wait.Done()
-		for msg := range app.delivd { // TODO: test that only numMsgs messages are delivered
+		for msg := range app.delivd {
 			rcvd = append(rcvd, msg)
 		}
 	}()
