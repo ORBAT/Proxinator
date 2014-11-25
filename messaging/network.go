@@ -5,6 +5,8 @@
 //
 package messaging
 
+// TODO(ORBAT): HOLY SHIT USE THIS https://github.com/telehash/gogotelehash
+
 import (
 	"bytes"
 	"encoding/binary"
@@ -190,15 +192,23 @@ func (nd *Node) WriteToI2aS(m *Message, addr Address) (n int, err error) {
 // WriteTo writes bytes b to I2aS address addr using node nd, returning bytes written or an error. n only includes raw message byte count; the DHT's message
 // "envelope" is not counted.
 func (nd *Node) WriteTo(b []byte, addr net.Addr) (n int, err error) {
-	if addr.Network() != NetworkName {
+	if _, ok := addr.(Address); !ok {
 		return 0, net.UnknownNetworkError(addr.Network())
 	}
-	return 0, errors.New("wip")
+
+	bcopy := make([]byte, len(b))
+	copy(bcopy, b)
+
+	_, err = nd.WriteToI2aS(&Message{Data: bcopy}, addr.(Address))
+	if err == nil {
+		n = len(b)
+	}
+	return
 }
 
 var (
 	// ErrWendyApp means something went weird with the Wendy app
-	ErrWendyApp = errors.New("Internal error")
+	ErrWendyApp = errors.New("Wendy app internal error")
 )
 
 // ReadFrom reads bytes from the I2aS messaging network.
